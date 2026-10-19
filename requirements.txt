@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+psycopg2-binary
+pydantic-settings
+python-jose[cryptography]
+pwdlib[argon2]
+firebase-admin
+python-multipart
+email-validator
+python-dotenv
