@@ -34,6 +34,9 @@ def getPendingOwners(
                 "city": owner.city,
                 "state": owner.state,
                 "country": owner.country,
+                "aadhaar_document": owner.aadhaar_document,
+                "pan_document": owner.pan_document,
+                "licence_document": owner.licence_document,
                 "status": owner.status,
                 "created_at": (
                     owner.created_at.isoformat()

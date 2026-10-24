@@ -6,23 +6,14 @@ from app.client.routes import auth_route
 from app.owner.routes import owner_auth_route
 from app.admin.routes import admin_auth_routes
 from app.owner.routes import notification_route
+from app.owner.routes import turf_route
+from app.client.routes import user_turf_routes
 
 app = FastAPI()
-# CORS Configuration for Flutter Web
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:52841",
-        "http://localhost:3000",
-        "http://localhost:5000",
-        "http://localhost:5173",
-        "http://localhost:8080",
-        "http://localhost:7357",
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:5000",
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:8080",
-        "http://127.0.0.1:7357",
+        "http://localhost:64082",
     ],
     allow_credentials=False,
     allow_methods=["*"],
@@ -35,6 +26,8 @@ app.include_router(auth_route.routes)
 app.include_router(owner_auth_route.routes)
 app.include_router(admin_auth_routes.routes)
 app.include_router(notification_route.routes)
+app.include_router(turf_route.routes)
+app.include_router(user_turf_routes.routes)
 
 @app.get("/")
 def root():

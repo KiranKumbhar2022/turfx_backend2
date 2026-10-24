@@ -15,8 +15,6 @@ from app.owner.controllers import auth_controller
 
 from app.owner.schemas.owner_auth_schema import (
     TurfOwnerLoginRequest,
-    TurfOwnerLoginResponse,
-    TurfOwnerSignupResponse
 )
 
 

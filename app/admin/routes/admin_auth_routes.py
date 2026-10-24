@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-
+from app.admin.schemas.admin_schemas import RejectOwnerRequest
 from app.database.database import getDB
 
 from app.admin.controllers.auth_controller import (
@@ -68,12 +68,12 @@ def approveOwnerRoute(
 @routes.put("/{owner_id}/reject")
 def rejectOwnerRoute(
     owner_id: int,
-    rejection_reason: str,
+   request: RejectOwnerRequest,
     db: Session = Depends(getDB)
 ):
 
     return rejectOwner(
         owner_id,
-        rejection_reason,
+        request.rejection_reason,
         db
     )
