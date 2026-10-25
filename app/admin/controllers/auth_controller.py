@@ -38,6 +38,7 @@ def getPendingOwners(
                 "pan_document": owner.pan_document,
                 "licence_document": owner.licence_document,
                 "status": owner.status,
+                "profileImage": owner.profileImage,
                 "created_at": (
                     owner.created_at.isoformat()
                     if owner.created_at

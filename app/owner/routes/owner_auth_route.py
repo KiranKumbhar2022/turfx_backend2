@@ -27,7 +27,6 @@ routes = APIRouter(
 # -------------------------
 # OWNER SIGNUP API
 # -------------------------
-
 @routes.post(
     "/register",
     status_code=status.HTTP_201_CREATED,
@@ -38,34 +37,31 @@ def ownerSignUp(
     mobile: str = Form(...),
     email: str = Form(...),
     password: str = Form(...),
-
     city: str = Form(...),
     state: str = Form(...),
     country: str = Form(...),
 
+    profileImage: UploadFile = File(...),
     aadhaar_document: UploadFile = File(...),
     pan_document: UploadFile = File(...),
     licence_document: UploadFile = File(...),
 
     db: Session = Depends(getDB)
 ):
-
     return auth_controller.ownerSignUp(
-    name=name,
-    mobile=mobile,
-    email=email,
-    password=password,
-    city=city,
-    state=state,
-    country=country,
-    aadhaar_document=aadhaar_document,
-    pan_document=pan_document,
-    licence_document=licence_document,
-    # fcm_token=fcm_token,
-    db=db
-)
-
-
+        name=name,
+        mobile=mobile,
+        email=email,
+        password=password,
+        city=city,
+        state=state,
+        country=country,
+        profileImage=profileImage,
+        aadhaar_document=aadhaar_document,
+        pan_document=pan_document,
+        licence_document=licence_document,
+        db=db
+    )
 # -------------------------
 # OWNER LOGIN API
 # -------------------------

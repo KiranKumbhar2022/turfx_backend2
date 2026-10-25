@@ -15,12 +15,12 @@ def ownerSignUp(
     city: str,
     state: str,
     country: str,
+    profileImage: UploadFile,
     aadhaar_document: UploadFile,
     pan_document: UploadFile,
     licence_document: UploadFile,
     db: Session,
 ):
-
     existingEmail = db.query(TurfOwnerModel).filter(
         TurfOwnerModel.email == email.strip().lower()
     ).first()
@@ -50,6 +50,11 @@ def ownerSignUp(
     uploaded_paths = []
 
     try:
+        profile_image_path = security.save_document(
+            profileImage,
+            "profile"
+        )
+        uploaded_paths.append(profile_image_path)
 
         aadhaar_path = security.save_document(
             aadhaar_document,
@@ -77,6 +82,8 @@ def ownerSignUp(
             city=city.strip(),
             state=state.strip(),
             country=country.strip(),
+
+            profileImage=profile_image_path,
             aadhaar_document=aadhaar_path,
             pan_document=pan_path,
             licence_document=licence_path,
@@ -93,17 +100,21 @@ def ownerSignUp(
                 "Registration submitted successfully. "
                 "Please wait for admin approval."
             ),
-           "response": {
-        "id": newOwner.id,
-        "name": newOwner.name,
-        "mobile": newOwner.mobile,
-        "email": newOwner.email,
-        "city": newOwner.city,
-        "state": newOwner.state,
-        "country": newOwner.country,
-        "status": newOwner.status,
-        "created_at": newOwner.created_at
-        }
+            "response": {
+                "id": newOwner.id,
+                "name": newOwner.name,
+                "mobile": newOwner.mobile,
+                "email": newOwner.email,
+                "city": newOwner.city,
+                "state": newOwner.state,
+                "country": newOwner.country,
+                "profileImage": newOwner.profileImage,
+                "status": newOwner.status,
+                "created_at": (
+                    newOwner.created_at.isoformat()
+                    if newOwner.created_at else None
+                )
+            }
         }
 
     except HTTPException:
@@ -138,8 +149,6 @@ def ownerSignUp(
                 "message": str(e)
             }
         )
-    
-
 def ownerLogin(
     email: str,
     password: str,

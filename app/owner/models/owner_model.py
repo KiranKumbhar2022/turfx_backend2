@@ -13,6 +13,10 @@ class TurfOwnerModel(Base):
         primary_key=True,
         index=True
     )
+    profileImage: Mapped[str | None] = mapped_column(
+    String(500),
+    nullable=True
+    )
 
     name: Mapped[str] = mapped_column(
         String(100),
