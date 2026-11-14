@@ -1,3 +1,6 @@
+
+import os
+import json
 import firebase_admin
 
 from firebase_admin import credentials
@@ -15,14 +18,36 @@ SERVICE_ACCOUNT_FILE = (
 
 def initialize_firebase():
 
+    # Prevent duplicate Firebase initialization
     if firebase_admin._apps:
-        return
+        return firebase_admin.get_app()
 
-    cred = credentials.Certificate(
-        str(SERVICE_ACCOUNT_FILE)
+    firebase_json = os.getenv(
+        "FIREBASE_SERVICE_ACCOUNT_JSON"
     )
 
-    firebase_admin.initialize_app(cred)
+    if firebase_json:
+
+        # Render production credentials
+        service_account_info = json.loads(firebase_json)
+
+        cred = credentials.Certificate(
+            service_account_info
+        )
+
+    else:
+
+        # Local development credentials
+        if not SERVICE_ACCOUNT_FILE.exists():
+            raise FileNotFoundError(
+                f"Firebase credentials not found: {SERVICE_ACCOUNT_FILE}"
+            )
+
+        cred = credentials.Certificate(
+            str(SERVICE_ACCOUNT_FILE)
+        )
+
+    return firebase_admin.initialize_app(cred)
 
 
 def send_notification(
