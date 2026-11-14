@@ -60,4 +60,9 @@ class clientAuthModel(Base):
     String(30),
     nullable=True
     )
+    is_banned: Mapped[bool] = mapped_column(
+    Boolean,
+    default=False,
+    nullable=False
+)
 

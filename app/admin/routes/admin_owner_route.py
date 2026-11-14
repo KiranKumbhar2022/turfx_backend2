@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from app.admin.schemas.admin_schemas import RejectOwnerRequest
 from app.database.database import getDB
 
+
 from app.admin.controllers.auth_controller import (
     getPendingOwners,
     getOwnerById,
@@ -77,3 +78,5 @@ def rejectOwnerRoute(
         request.rejection_reason,
         db
     )
+
+

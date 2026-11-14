@@ -77,4 +77,28 @@ def verifyAccessToken(token: str) -> dict:
             detail="Invalid or expired token",
             headers={"WWW-Authenticate": "Bearer"}
         )
+def verifyAdminAccessToken(token: str) -> dict:
+    try:
+        payload = jwt.decode(
+            token,
+            setting.SECRET_KEY,
+            algorithms=[setting.ALGORITHM]
+        )
 
+        admin_id = payload.get("sub")
+        role = payload.get("role")
+
+        if admin_id is None or role != "admin":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid admin token"
+            )
+
+        return payload
+
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
