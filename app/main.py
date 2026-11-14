@@ -14,7 +14,10 @@ from app.client.routes import user_turf_routes
 from app.admin.routes import admin_user_route
 from app.admin.routes import admin_owner_route
 
-app = FastAPI()
+app = FastAPI(
+    title="TurfX API",
+    version="1.0.0"
+)
 
 # CORS Configuration
 app.add_middleware(
