@@ -12,7 +12,9 @@ from app.owner.routes import notification_route
 from app.owner.routes import turf_route
 from app.client.routes import user_turf_routes
 from app.admin.routes import admin_user_route
-from app.admin.routes import admin_owner_route
+from app.admin.routes import admin_auth_route
+from app.admin.routes import admin_booking_routes
+from app.owner.routes import owner_booking_route
 
 app = FastAPI(
     title="TurfX API",
@@ -38,7 +40,9 @@ app.include_router(notification_route.routes)
 app.include_router(turf_route.routes)
 app.include_router(user_turf_routes.routes)
 app.include_router(admin_user_route.routes)
-# app.include_router(admin_owner_route.routes)
+app.include_router(admin_auth_route.routes)
+app.include_router(admin_booking_routes.routes)
+app.include_router(owner_booking_route.routes)
 
 
 @app.get("/")

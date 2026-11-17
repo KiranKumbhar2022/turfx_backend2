@@ -1,10 +1,11 @@
+
 from sqlalchemy import (
     Column, Integer, String, Date, Time, Float,
-    DateTime, ForeignKey, func
+    DateTime, ForeignKey, func, JSON,Numeric
 )
-from app.database.database import Base  
-from sqlalchemy import JSON
 from sqlalchemy.orm import relationship
+from app.database.database import Base
+
 
 class Booking(Base):
     __tablename__ = "bookings"
@@ -30,13 +31,28 @@ class Booking(Base):
     start_time = Column(Time, nullable=False)
     end_time = Column(Time, nullable=False)
 
+    # Price breakdown
+    turf_amount = Column(
+    Numeric(10, 2),
+    nullable=False,
+    default=0.0,
+)
+
+    equipment_amount = Column(
+    Numeric(10, 2),
+    nullable=False,
+    default=0.0,
+)
+
     total_amount = Column(Float, nullable=False)
+
     status = Column(
         String,
         nullable=False,
         default="pending",
         index=True,
     )
+
     payment_status = Column(
         String,
         nullable=False,
@@ -55,9 +71,8 @@ class Booking(Base):
         back_populates="bookings",
     )
 
-
     created_at = Column(
         DateTime(timezone=True),
         server_default=func.now(),
-        nullable=False
+        nullable=False,
     )

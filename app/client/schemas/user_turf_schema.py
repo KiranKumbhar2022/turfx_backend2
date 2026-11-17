@@ -1,8 +1,9 @@
+
 from datetime import date, datetime, time
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.owner.schemas.turf_schema import TurfOut 
+from app.owner.schemas.turf_schema import TurfOut
 
 
 class BookingEquipmentRequest(BaseModel):
@@ -16,6 +17,7 @@ class CheckoutRequest(BaseModel):
     booking_date: date
     start_time: time
     end_time: time
+
     equipment: list[BookingEquipmentRequest] = Field(
         default_factory=list
     )
@@ -27,17 +29,28 @@ class BookingOut(BaseModel):
     id: int
     user_id: int
     turf_id: int
+
     sport: str
     booking_date: date
     start_time: time
     end_time: time
+
+    # Price breakdown
+    turf_amount: float
+    equipment_amount: float
     total_amount: float
+
     status: str
     payment_status: str
     created_at: datetime
+
     payable_amount: float = 0.0
+
     turf: TurfOut
-    selected_equipment: list[dict] = Field(default_factory=list)
+
+    selected_equipment: list[dict] = Field(
+        default_factory=list
+    )
 
 
 class BookingListResponse(BaseModel):

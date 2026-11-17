@@ -1,3 +1,4 @@
+
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
@@ -31,6 +32,14 @@ def getCurrentOwner(
             detail="Owner not found"
         )
 
+    # Check if owner is banned
+    if owner.is_banned:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your account has been suspended by admin. Please contact support."
+        )
+
+    # Check approval status
     if owner.status != "approved":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

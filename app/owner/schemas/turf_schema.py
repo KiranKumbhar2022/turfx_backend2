@@ -2,7 +2,7 @@ from datetime import time,date
 from enum import Enum
 from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-
+from typing import Any
 
 class PlayType(str, Enum):
     cricket = "Cricket"
@@ -130,6 +130,7 @@ class TurfOut(BaseModel):
     media: list[MediaOut]
     latitude: float | None = None
     longitude: float | None = None
+    is_active: bool
     isFavorite: bool = False
     city: str
     state: str
@@ -189,3 +190,11 @@ class BookingDecisionResponse(BaseModel):
     status_code: int
     message: str
     response: dict
+
+class OwnerTurfStatusRequest(BaseModel):
+    is_active: bool   
+
+class OwnerBookingDetailResponse(BaseModel):
+    status_code: int
+    message: str
+    response: dict[str, Any]     

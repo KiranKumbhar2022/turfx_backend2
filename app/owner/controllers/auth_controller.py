@@ -7,6 +7,7 @@ from app.owner.models.owner_model import TurfOwnerModel
 from app.core.owner import security
 from fastapi.responses import JSONResponse
 
+
 def ownerSignUp(
     name: str,
     mobile: str,
@@ -149,6 +150,8 @@ def ownerSignUp(
                 "message": str(e)
             }
         )
+    
+
 def ownerLogin(
     email: str,
     password: str,
@@ -163,10 +166,11 @@ def ownerLogin(
         return JSONResponse(
             status_code=401,
             content={
-                "message":"Invalid email or password"
+                "message": "Invalid email or password"
             }
         )
 
+    # Verify password
     if not security.verifyPassword(
         password,
         ownerExist.hashed_password
@@ -174,35 +178,49 @@ def ownerLogin(
         return JSONResponse(
             status_code=401,
             content={
-                "message":"Invalid email or password"
+                "message": "Invalid email or password"
             }
         )
 
+    # Check if owner is banned
+    if ownerExist.is_banned:
+        return JSONResponse(
+            status_code=403,
+            content={
+                "statusCode": 403,
+                "message": "Your account has been suspended by admin. Please contact support."
+            }
+        )
+
+    # Check pending status
     if ownerExist.status == "pending":
         return JSONResponse(
             status_code=403,
             content={
-                "message":"Your account is waiting for admin approval"
+                "message": "Your account is waiting for admin approval"
             }
         )
 
+    # Check rejected status
     if ownerExist.status == "rejected":
         return JSONResponse(
             status_code=403,
             content={
-                "message":"Your account has been rejected",
+                "message": "Your account has been rejected",
                 "reason": ownerExist.rejection_reason
             }
         )
 
+    # Check approved status
     if ownerExist.status != "approved":
         return JSONResponse(
             status_code=403,
             content={
-                "message":"Your account is not active"
+                "message": "Your account is not active"
             }
         )
 
+    # Generate access token
     accessToken = security.createAccessToken(
         data={
             "sub": str(ownerExist.id),
@@ -214,7 +232,6 @@ def ownerLogin(
     return {
         "statusCode": 200,
         "message": "Login successful",
-
         "response": {
             "id": ownerExist.id,
             "name": ownerExist.name,
@@ -225,7 +242,77 @@ def ownerLogin(
             "country": ownerExist.country,
             "status": ownerExist.status
         },
-
         "access_token": accessToken,
         "token_type": "bearer"
+    }
+
+
+# STEP 1: VERIFY EMAIL
+def ownerVerifyEmail(
+    email: str,
+    db: Session
+):
+    owner = db.query(TurfOwnerModel).filter(
+        TurfOwnerModel.email == email.strip().lower()
+    ).first()
+
+    if not owner:
+        raise HTTPException(
+            status_code=404,
+            detail="Email address is not registered"
+        )
+
+    if owner.is_banned:
+        raise HTTPException(
+            status_code=403,
+            detail="Your account has been suspended"
+        )
+
+    return {
+        "statusCode": 200,
+        "message": "Email verified successfully",
+        "response": {
+            "email": owner.email
+        }
+    }
+
+
+# STEP 2: RESET PASSWORD
+def ownerResetPassword(
+    email: str,
+    new_password: str,
+    confirm_password: str,
+    db: Session
+):
+    if new_password != confirm_password:
+        raise HTTPException(
+            status_code=400,
+            detail="Passwords do not match"
+        )
+
+    owner = db.query(TurfOwnerModel).filter(
+        TurfOwnerModel.email == email.strip().lower()
+    ).first()
+
+    if not owner:
+        raise HTTPException(
+            status_code=404,
+            detail="Email address is not registered"
+        )
+
+    if owner.is_banned:
+        raise HTTPException(
+            status_code=403,
+            detail="Your account has been suspended"
+        )
+
+    owner.hashed_password = security.hashPassword(
+        new_password
+    )
+
+    db.commit()
+
+    return {
+        "statusCode": 200,
+        "message": "Password changed successfully. Please login again."
     }

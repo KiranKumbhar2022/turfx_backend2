@@ -49,6 +49,12 @@ class Turf(Base):
     "Booking",
     back_populates="turf",
 )
+    is_active: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        server_default="true",
+        nullable=False,
+    )
 
 
 class Equipment(Base):

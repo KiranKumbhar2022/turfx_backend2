@@ -101,3 +101,12 @@ class TurfOwnerModel(Base):
     default=False,
     nullable=False
 )
+reset_token_hash: Mapped[str | None] = mapped_column(
+    String(255),
+    nullable=True
+)
+
+reset_token_expires_at: Mapped[datetime | None] = mapped_column(
+    DateTime(timezone=True),
+    nullable=True
+)

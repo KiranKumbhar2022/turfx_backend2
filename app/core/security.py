@@ -102,3 +102,53 @@ def verifyAdminAccessToken(token: str) -> dict:
             detail="Invalid or expired token",
             headers={"WWW-Authenticate": "Bearer"}
         )
+    
+
+def createRefreshToken(data: dict):
+    toEncoded = data.copy()
+
+    expire = datetime.now(timezone.utc) + timedelta(days=7)
+
+    toEncoded.update({
+        "exp": expire,
+        "type": "refresh"
+    })
+
+    return jwt.encode(
+        toEncoded,
+        setting.SECRET_KEY,
+        algorithm=setting.ALGORITHM
+    )
+
+
+def verifyRefreshToken(token: str) -> dict:
+    try:
+        payload = jwt.decode(
+            token,
+            setting.SECRET_KEY,
+            algorithms=[setting.ALGORITHM]
+        )
+
+        owner_id = payload.get("sub")
+        role = payload.get("role")
+        token_type = payload.get("type")
+
+        if (
+            owner_id is None
+            or role != "turf_owner"
+            or token_type != "refresh"
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid refresh token"
+            )
+
+        return payload
+
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token expired or invalid. Please login again.",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+

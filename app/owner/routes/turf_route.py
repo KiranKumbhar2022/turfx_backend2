@@ -79,23 +79,87 @@ def create_turf(
 
     return turf
 
-@routes.get("", response_model=list[turf_schema.TurfOut])
+@routes.get("")
 def list_turfs(
     play_type: turf_schema.PlayType | None = None,
     max_price: float | None = Query(default=None, gt=0),
     search: str | None = None,
+    is_active: bool | None = None,
     skip: int = 0,
     limit: int = Query(default=20, le=100),
     db: Session = Depends(getDB),
+    current_user=Depends(getCurrentOwner),
 ):
-    stmt = select(models.Turf)
+
+    stmt = (
+        select(models.Turf)
+        .where(models.Turf.owner_id == current_user.id)
+        .options(
+            selectinload(models.Turf.equipment),
+            selectinload(models.Turf.schedule),
+            selectinload(models.Turf.media),
+        )
+    )
+
     if play_type:
-        stmt = stmt.where(models.Turf.play_types.contains(play_type.value))
-    if max_price:
-        stmt = stmt.where(models.Turf.price_per_hour <= max_price)
+        stmt = stmt.where(
+            models.Turf.play_types.contains([play_type.value])
+        )
+
+    if max_price is not None:
+        stmt = stmt.where(
+            models.Turf.price_per_hour <= max_price
+        )
+
     if search:
-        stmt = stmt.where(models.Turf.name.ilike(f"%{search}%"))
-    return db.scalars(stmt.offset(skip).limit(limit)).all()
+        stmt = stmt.where(
+            models.Turf.name.ilike(f"%{search}%")
+        )
+
+    if is_active is not None:
+        stmt = stmt.where(
+            models.Turf.is_active == is_active
+        )
+
+    stmt = stmt.offset(skip).limit(limit)
+
+    turfs = db.scalars(stmt).all()
+
+    return {
+        "status_code": status.HTTP_200_OK,
+        "message": "Owner turfs fetched successfully",
+        "response": turfs
+    }
+
+@routes.patch(
+    "/{turf_id}/status",
+    response_model=turf_schema.TurfOut,
+)
+def update_turf_status(
+    turf_id: int,
+    payload: turf_schema.OwnerTurfStatusRequest,
+    db: Session = Depends(getDB),
+    current_user=Depends(getCurrentOwner),
+):
+    turf = db.scalar(
+        select(models.Turf).where(
+            models.Turf.id == turf_id,
+            models.Turf.owner_id == current_user.id,
+        )
+    )
+
+    if turf is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Turf not found",
+        )
+
+    turf.is_active = payload.is_active
+
+    db.commit()
+    db.refresh(turf)
+
+    return turf
 
 
 @routes.get("/{turf_id}", response_model=turf_schema.TurfOut)

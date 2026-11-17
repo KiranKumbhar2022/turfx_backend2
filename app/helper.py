@@ -7,9 +7,18 @@ from sqlalchemy.orm import Session, selectinload
 from app.owner.models import turf_model as models
 from app.client.models.user_turf_model import Booking
 from app.owner.schemas import turf_schema
+from sqlalchemy import select, update, or_, and_
+from zoneinfo import ZoneInfo
+from app.owner.models import turf_model
 
+import smtplib
+
+from email.message import EmailMessage
+
+from app.core.config import setting
 
 def build_booking_response(db: Session, booking: Booking):
+
     turf = db.scalar(
         select(models.Turf)
         .where(models.Turf.id == booking.turf_id)
@@ -21,30 +30,17 @@ def build_booking_response(db: Session, booking: Booking):
     )
 
     if turf is None:
-        raise HTTPException(status_code=404, detail="Turf not found")
+        raise HTTPException(
+            status_code=404,
+            detail="Turf not found"
+        )
 
-    # Calculate booking duration in hours
-    start = datetime.strptime(str(booking.start_time), "%H:%M:%S")
-    end = datetime.strptime(str(booking.end_time), "%H:%M:%S")
-
-    duration_hours = (end - start).total_seconds() / 3600
-
-    # Calculate turf amount
-    turf_amount = float(turf.price_per_hour or 0) * duration_hours
-
-    # Calculate selected equipment amount
     selected_equipment = booking.selected_equipment or []
 
-    equipment_amount = sum(
-        float(item.get("subtotal") or (
-            float(item.get("price") or 0)
-            * int(item.get("quantity") or 1)
-        ))
-        for item in selected_equipment
-    )
-
-    # Final payable amount
-    payable_amount = round(turf_amount + equipment_amount, 2)
+    # Get saved booking amounts
+    turf_amount = float(booking.turf_amount or 0)
+    equipment_amount = float(booking.equipment_amount or 0)
+    total_amount = float(booking.total_amount or 0)
 
     return {
         "id": booking.id,
@@ -54,11 +50,103 @@ def build_booking_response(db: Session, booking: Booking):
         "booking_date": booking.booking_date,
         "start_time": booking.start_time,
         "end_time": booking.end_time,
-        "total_amount": booking.total_amount,
-        "payable_amount": payable_amount,
+
+        # Booking amounts
+        "turf_amount": turf_amount,
+        "equipment_amount": equipment_amount,
+        "total_amount": total_amount,
+        "payable_amount": total_amount,
+
         "status": booking.status,
         "payment_status": booking.payment_status,
         "created_at": booking.created_at,
+
         "selected_equipment": selected_equipment,
+
         "turf": turf_schema.TurfOut.model_validate(turf),
     }
+
+
+def update_completed_bookings(db, owner_id):
+
+    now = datetime.now(ZoneInfo("Asia/Kolkata"))
+
+    owner_turf_ids = select(
+        turf_model.Turf.id
+    ).where(
+        turf_model.Turf.owner_id == owner_id
+    )
+
+    result = db.execute(
+        update(Booking)
+        .where(
+            Booking.turf_id.in_(owner_turf_ids),
+            Booking.status == "confirmed",
+            or_(
+                Booking.booking_date < now.date(),
+                and_(
+                    Booking.booking_date == now.date(),
+                    Booking.end_time <= now.time().replace(
+                        tzinfo=None
+                    )
+                )
+            )
+        )
+        .values(status="completed")
+    )
+
+    db.commit()
+
+    print(
+        f"Completed bookings updated: {result.rowcount}"
+    )
+
+
+def send_owner_reset_email(
+    email: str,
+    reset_token: str
+):
+    reset_link = (
+        f"{setting.FRONTEND_URL}/reset-password"
+        f"?token={reset_token}"
+    )
+
+    message = EmailMessage()
+
+    message["Subject"] = "TurfX - Password Reset"
+    message["From"] = setting.SMTP_EMAIL
+    message["To"] = email
+
+    message.set_content(
+        f"""
+Hello,
+
+We received a request to reset your TurfX owner account password.
+
+Click the link below to reset your password:
+
+{reset_link}
+
+This link will expire in 15 minutes.
+
+If you did not request this password reset,
+please ignore this email.
+
+Regards,
+TurfX Team
+"""
+    )
+
+    with smtplib.SMTP(
+        setting.SMTP_HOST,
+        setting.SMTP_PORT
+    ) as server:
+
+        server.starttls()
+
+        server.login(
+            setting.SMTP_EMAIL,
+            setting.SMTP_PASSWORD
+        )
+
+        server.send_message(message)

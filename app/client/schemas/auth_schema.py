@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from datetime import datetime
 
 from app.core.response import SuccessResponse
@@ -39,3 +39,21 @@ class LoginReqBody(BaseModel):
 class LoginResponse(SuccessResponse[UserResponse]):
     access_token: str
     token_type: str
+
+
+class UserVerifyEmailRequest(BaseModel):
+    email: EmailStr
+
+
+class UserResetPasswordRequest(BaseModel):
+    email: EmailStr
+
+    new_password: str = Field(
+        min_length=6,
+        max_length=128
+    )
+
+    confirm_password: str = Field(
+        min_length=6,
+        max_length=128
+    )

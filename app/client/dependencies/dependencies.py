@@ -30,7 +30,6 @@ def get_current_user(
                 detail="Invalid access token",
             )
 
-        # Replace this with your actual client user model
         current_user = db.get(
             clientAuthModel,
             int(user_id),
@@ -42,7 +41,17 @@ def get_current_user(
                 detail="User not found",
             )
 
+        # Check whether customer is banned
+        if current_user.is_banned:
+            raise HTTPException(
+                status_code=403,
+                detail="Your account has been banned. Please contact support.",
+            )
+
         return current_user
+
+    except HTTPException:
+        raise
 
     except (JWTError, ValueError, TypeError):
         raise HTTPException(

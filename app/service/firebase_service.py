@@ -2,49 +2,30 @@
 import os
 import json
 import firebase_admin
-
-from firebase_admin import credentials
-from firebase_admin import messaging
-
+from firebase_admin import credentials, messaging
 from pathlib import Path
 
-
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
-
-SERVICE_ACCOUNT_FILE = (
-    BASE_DIR / "firebase-service-account.json"
-)
+SERVICE_ACCOUNT_FILE = BASE_DIR / "firebase-service-account.json"
 
 
 def initialize_firebase():
-
-    # Prevent duplicate Firebase initialization
     if firebase_admin._apps:
         return firebase_admin.get_app()
 
-    firebase_json = os.getenv(
-        "FIREBASE_SERVICE_ACCOUNT_JSON"
-    )
+    firebase_json = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON")
 
     if firebase_json:
-
-        # Render production credentials
         service_account_info = json.loads(firebase_json)
+        cred = credentials.Certificate(service_account_info)
 
-        cred = credentials.Certificate(
-            service_account_info
-        )
+    elif SERVICE_ACCOUNT_FILE.exists():
+        cred = credentials.Certificate(str(SERVICE_ACCOUNT_FILE))
 
     else:
-
-        # Local development credentials
-        if not SERVICE_ACCOUNT_FILE.exists():
-            raise FileNotFoundError(
-                f"Firebase credentials not found: {SERVICE_ACCOUNT_FILE}"
-            )
-
-        cred = credentials.Certificate(
-            str(SERVICE_ACCOUNT_FILE)
+        raise FileNotFoundError(
+            "Firebase credentials not found. "
+            "Set FIREBASE_SERVICE_ACCOUNT_JSON in Render environment variables."
         )
 
     return firebase_admin.initialize_app(cred)
@@ -56,7 +37,6 @@ def send_notification(
     body: str,
     data: dict | None = None
 ):
-
     initialize_firebase()
 
     message = messaging.Message(
@@ -64,12 +44,9 @@ def send_notification(
             title=title,
             body=body
         ),
-
         data=data or {},
-
         token=fcm_token
     )
 
     response = messaging.send(message)
-
     return response
