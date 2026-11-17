@@ -32,19 +32,6 @@ class Booking(Base):
     end_time = Column(Time, nullable=False)
 
     # Price breakdown
-    turf_amount = Column(
-    Numeric(10, 2),
-    nullable=False,
-    default=0.0,
-)
-
-    equipment_amount = Column(
-    Numeric(10, 2),
-    nullable=False,
-    default=0.0,
-)
-
-    total_amount = Column(Float, nullable=False)
 
     status = Column(
         String,
