@@ -1,7 +1,15 @@
 
 from sqlalchemy import (
-    Column, Integer, String, Date, Time, Float,
-    DateTime, ForeignKey, func, JSON,Numeric
+    Column,
+    Integer,
+    String,
+    Date,
+    Time,
+    DateTime,
+    ForeignKey,
+    func,
+    JSON,
+    Numeric,
 )
 from sqlalchemy.orm import relationship
 from app.database.database import Base
@@ -27,11 +35,31 @@ class Booking(Base):
     )
 
     sport = Column(String, nullable=False)
+
     booking_date = Column(Date, nullable=False)
+
     start_time = Column(Time, nullable=False)
+
     end_time = Column(Time, nullable=False)
 
     # Price breakdown
+    turf_amount = Column(
+        Numeric(10, 2),
+        nullable=False,
+        default=0.00,
+    )
+
+    equipment_amount = Column(
+        Numeric(10, 2),
+        nullable=False,
+        default=0.00,
+    )
+
+    total_amount = Column(
+        Numeric(10, 2),
+        nullable=False,
+        default=0.00,
+    )
 
     status = Column(
         String,

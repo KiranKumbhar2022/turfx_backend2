@@ -583,6 +583,7 @@ def checkout_booking(
 
 
 
+
 @routes.post(
     "/checkout",
     response_model=BookingDetailsResponse,
@@ -611,7 +612,7 @@ def checkout_booking(
             detail="Please select a future booking time",
         )
 
-    # 2. Fetch turf and related information
+    # 2. Fetch turf with related information
     turf = db.scalar(
         select(turf_model.Turf)
         .where(turf_model.Turf.id == payload.turf_id)
@@ -648,7 +649,7 @@ def checkout_booking(
             detail="Selected sport is not available at this turf",
         )
 
-    # 4. Check whether the selected slot is already booked
+    # 4. Check booking slot conflict
     conflict = db.scalar(
         select(Booking.id)
         .where(
@@ -667,17 +668,30 @@ def checkout_booking(
             detail="This time slot is already booked",
         )
 
-    # 5. Calculate turf booking price
+    # 5. Calculate turf amount
     duration_seconds = (
-        datetime.combine(payload.booking_date, payload.end_time)
-        - datetime.combine(payload.booking_date, payload.start_time)
+        datetime.combine(
+            payload.booking_date,
+            payload.end_time,
+        )
+        - datetime.combine(
+            payload.booking_date,
+            payload.start_time,
+        )
     ).total_seconds()
 
-    duration_hours = duration_seconds / 3600
+    duration_hours = Decimal(str(duration_seconds)) / Decimal("3600")
 
-    total_amount = float(turf.price_per_hour) * duration_hours
+    hourly_price = Decimal(str(turf.price_per_hour or 0))
 
-    # 6. Validate selected equipment and calculate equipment charges
+    turf_amount = (
+        hourly_price * duration_hours
+    ).quantize(
+        Decimal("0.01"),
+        rounding=ROUND_HALF_UP,
+    )
+
+    # 6. Validate selected equipment and calculate amount
     turf_equipment = {
         item.id: item for item in (turf.equipment or [])
     }
@@ -685,7 +699,10 @@ def checkout_booking(
     selected_equipment = []
     seen_ids = set()
 
+    equipment_amount = Decimal("0.00")
+
     for requested in (payload.equipment or []):
+
         if requested.equipment_id in seen_ids:
             raise HTTPException(
                 status_code=400,
@@ -705,22 +722,45 @@ def checkout_booking(
                 ),
             )
 
-        price = float(item.price or 0)
-        subtotal = price * requested.quantity
+        if requested.quantity <= 0:
+            raise HTTPException(
+                status_code=400,
+                detail="Equipment quantity must be greater than zero",
+            )
 
-        total_amount += subtotal
+        price = Decimal(str(item.price or 0))
 
-        selected_equipment.append(
-            {
-                "equipment_id": item.id,
-                "item": item.item,
-                "price": price,
-                "quantity": requested.quantity,
-                "subtotal": round(subtotal, 2),
-            }
+        subtotal = (
+            price * requested.quantity
+        ).quantize(
+            Decimal("0.01"),
+            rounding=ROUND_HALF_UP,
         )
 
-    # 7. Prepare booking record
+        equipment_amount += subtotal
+
+        selected_equipment.append({
+            "equipment_id": item.id,
+            "item": item.item,
+            "price": float(price),
+            "quantity": requested.quantity,
+            "subtotal": float(subtotal),
+        })
+
+    equipment_amount = equipment_amount.quantize(
+        Decimal("0.01"),
+        rounding=ROUND_HALF_UP,
+    )
+
+    # 7. Calculate final booking amount
+    total_amount = (
+        turf_amount + equipment_amount
+    ).quantize(
+        Decimal("0.01"),
+        rounding=ROUND_HALF_UP,
+    )
+
+    # 8. Create booking
     booking = Booking(
         user_id=current_user.id,
         turf_id=turf.id,
@@ -728,13 +768,17 @@ def checkout_booking(
         booking_date=payload.booking_date,
         start_time=payload.start_time,
         end_time=payload.end_time,
-        total_amount=round(total_amount, 2),
+
+        turf_amount=float(turf_amount),
+        equipment_amount=float(equipment_amount),
+        total_amount=float(total_amount),
+
         status="pending",
         payment_status="unpaid",
         selected_equipment=selected_equipment,
     )
 
-    # 8. Save booking to the database
+    # 9. Save booking
     try:
         db.add(booking)
         db.commit()
@@ -743,16 +787,14 @@ def checkout_booking(
     except Exception as e:
         db.rollback()
 
-        # Print full traceback in the FastAPI terminal
         logger.exception("Failed to create booking")
 
-        # Temporary debugging response; avoid exposing raw errors in production
         raise HTTPException(
             status_code=500,
-            detail=f"Unable to create booking: {str(e)}",
+            detail="Unable to create booking. Please try again.",
         ) from e
 
-    # 9. Return successful response
+    # 10. Return booking response
     return BookingDetailsResponse(
         status_code=201,
         message="Booking created successfully",
