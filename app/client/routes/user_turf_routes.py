@@ -371,7 +371,7 @@ def checkout_booking(
     )
  """
 
-
+""" 
 @routes.post(
     "/checkout",
     response_model=BookingDetailsResponse,
@@ -574,6 +574,185 @@ def checkout_booking(
         ) from e
 
     # 10. Return response
+    return BookingDetailsResponse(
+        status_code=201,
+        message="Booking created successfully",
+        response=build_booking_response(db, booking),
+    )
+ """
+
+
+
+@routes.post(
+    "/checkout",
+    response_model=BookingDetailsResponse,
+    status_code=201,
+)
+def checkout_booking(
+    payload: CheckoutRequest,
+    db: Session = Depends(getDB),
+    current_user=Depends(get_current_user),
+):
+    # 1. Validate booking time
+    if payload.start_time >= payload.end_time:
+        raise HTTPException(
+            status_code=400,
+            detail="End time must be later than start time",
+        )
+
+    booking_start = datetime.combine(
+        payload.booking_date,
+        payload.start_time,
+    )
+
+    if booking_start <= datetime.now():
+        raise HTTPException(
+            status_code=400,
+            detail="Please select a future booking time",
+        )
+
+    # 2. Fetch turf and related information
+    turf = db.scalar(
+        select(turf_model.Turf)
+        .where(turf_model.Turf.id == payload.turf_id)
+        .options(
+            selectinload(turf_model.Turf.equipment),
+            selectinload(turf_model.Turf.schedule),
+            selectinload(turf_model.Turf.media),
+        )
+    )
+
+    if turf is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Turf not found",
+        )
+
+    # 3. Validate selected sport
+    available_sports = turf.play_types or ""
+
+    if isinstance(available_sports, str):
+        available_sports = [
+            sport.strip().lower()
+            for sport in available_sports.split(",")
+        ]
+    else:
+        available_sports = [
+            str(sport).strip().lower()
+            for sport in available_sports
+        ]
+
+    if payload.sport.strip().lower() not in available_sports:
+        raise HTTPException(
+            status_code=400,
+            detail="Selected sport is not available at this turf",
+        )
+
+    # 4. Check whether the selected slot is already booked
+    conflict = db.scalar(
+        select(Booking.id)
+        .where(
+            Booking.turf_id == payload.turf_id,
+            Booking.booking_date == payload.booking_date,
+            Booking.status.in_(["pending", "confirmed"]),
+            Booking.start_time < payload.end_time,
+            Booking.end_time > payload.start_time,
+        )
+        .limit(1)
+    )
+
+    if conflict is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="This time slot is already booked",
+        )
+
+    # 5. Calculate turf booking price
+    duration_seconds = (
+        datetime.combine(payload.booking_date, payload.end_time)
+        - datetime.combine(payload.booking_date, payload.start_time)
+    ).total_seconds()
+
+    duration_hours = duration_seconds / 3600
+
+    total_amount = float(turf.price_per_hour) * duration_hours
+
+    # 6. Validate selected equipment and calculate equipment charges
+    turf_equipment = {
+        item.id: item for item in (turf.equipment or [])
+    }
+
+    selected_equipment = []
+    seen_ids = set()
+
+    for requested in (payload.equipment or []):
+        if requested.equipment_id in seen_ids:
+            raise HTTPException(
+                status_code=400,
+                detail="Duplicate equipment IDs are not allowed",
+            )
+
+        seen_ids.add(requested.equipment_id)
+
+        item = turf_equipment.get(requested.equipment_id)
+
+        if item is None:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Equipment {requested.equipment_id} "
+                    "is not available at this turf"
+                ),
+            )
+
+        price = float(item.price or 0)
+        subtotal = price * requested.quantity
+
+        total_amount += subtotal
+
+        selected_equipment.append(
+            {
+                "equipment_id": item.id,
+                "item": item.item,
+                "price": price,
+                "quantity": requested.quantity,
+                "subtotal": round(subtotal, 2),
+            }
+        )
+
+    # 7. Prepare booking record
+    booking = Booking(
+        user_id=current_user.id,
+        turf_id=turf.id,
+        sport=payload.sport.strip(),
+        booking_date=payload.booking_date,
+        start_time=payload.start_time,
+        end_time=payload.end_time,
+        total_amount=round(total_amount, 2),
+        status="pending",
+        payment_status="unpaid",
+        selected_equipment=selected_equipment,
+    )
+
+    # 8. Save booking to the database
+    try:
+        db.add(booking)
+        db.commit()
+        db.refresh(booking)
+
+    except Exception as e:
+        db.rollback()
+
+        # Print full traceback in the FastAPI terminal
+        logger.exception("Failed to create booking")
+
+        # Temporary debugging response; avoid exposing raw errors in production
+        raise HTTPException(
+            status_code=500,
+            detail=f"Unable to create booking: {str(e)}",
+        ) from e
+
+    # 9. Return successful response
     return BookingDetailsResponse(
         status_code=201,
         message="Booking created successfully",
